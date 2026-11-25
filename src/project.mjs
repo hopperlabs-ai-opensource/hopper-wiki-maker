@@ -11,7 +11,7 @@ export function knowledge(value) {
   if(!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString()!==value)throw Error('Expected a UTC timestamp');
   return value;
 }
-export function nodesAt(graph,{validAt=latest,knownAt}={}) {
+export function nodesAt(graph,{validAt=new Date().toISOString().slice(0,10),knownAt}={}) {
   date(validAt);const cutoff=knowledge(knownAt), nodes=new Map();
   for(const revision of graph.revisions) {
     if(revision.recordedAt>cutoff)break;

@@ -6,8 +6,8 @@ import {esc,href,indexBody,articleBody,markdown,shell} from './format.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const save=(dir,file,body)=>{const p=path.join(dir,file);fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,body);};
 export function exportWiki(graph,dir,{origin=''}={}){
-  validate(graph);const file=(name,body)=>save(dir,name,body);const json=(name,obj)=>file(name,JSON.stringify(obj)+'\n');
-  const items=find(graph).map(i=>({...i,description:project(graph,i.slug).article.summary||''}));
+  validate(graph);const releaseView={validAt:(graph.revisions.at(-1)?.recordedAt||'1970-01-01').slice(0,10)};const file=(name,body)=>save(dir,name,body);const json=(name,obj)=>file(name,JSON.stringify(obj)+'\n');
+  const items=find(graph,'',releaseView).map(i=>({...i,description:project(graph,i.slug,releaseView).article.summary||''}));
   const pages=[];
   function page(route,title,description,body,slug=''){
     const inner=shell(graph.title,items,body,slug);pages.push({route,title,description,html:inner});
@@ -15,11 +15,11 @@ export function exportWiki(graph,dir,{origin=''}={}){
   }
   page('/',graph.title,'Browse cited articles, examples and dated events.',indexBody(items));
   for(const i of items){
-    const p=project(graph,i.slug);page(href(i.slug),i.title,i.description||i.title,articleBody(p),i.slug);
+    const p=project(graph,i.slug,releaseView);page(href(i.slug),i.title,i.description||i.title,articleBody(p),i.slug);
     json('api/articles/'+i.slug+'.json',p);file('api/articles/'+i.slug+'.md',markdown(p));
     for(const a of p.article.aliases||[]){file('wiki/'+a+'/index.html','<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url='+href(i.slug)+'"><a href="'+href(i.slug)+'">'+esc(i.title)+'</a>');}
   }
-  const events=[...nodesAt(graph).values()].filter(n=>n.kind==='event').sort((a,b)=>b.date.localeCompare(a.date));
+  const events=[...nodesAt(graph,releaseView).values()].filter(n=>n.kind==='event').sort((a,b)=>b.date.localeCompare(a.date));
   const titles=new Map(items.map(i=>['article:'+i.slug,i]));
   page('/timeline/','Timeline','Shared dated milestones across the wiki.','<header><p class="kicker">Across subjects</p><h1>Timeline</h1></header><ol class="events">'+events.map(n=>'<li><time>'+esc(n.date)+'</time><div>'+esc(n.title)+'<div>'+n.articles.map(id=>'<a href="'+href(titles.get(id).slug)+'#timeline">'+esc(titles.get(id).title)+'</a>').join(' · ')+'</div></div></li>').join('')+'</ol>');
   json('api/index.json',{title:graph.title,revision:head(graph),articles:items,timeline:'/api/timeline.json',graph:'/api/graph.json',feed:'/feed.json'});

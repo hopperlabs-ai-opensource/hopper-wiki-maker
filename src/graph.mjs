@@ -26,6 +26,10 @@ function validChange(c){
     if(!/^\d{4}(?:-\d\d(?:-\d\d)?)?$/.test(n.date))throw Error('Invalid event date');
     const d=n.date.length===4?n.date+'-01-01':n.date.length===7?n.date+'-01':n.date;date(d);
     if(n.chronoscope)safeUrl(n.chronoscope);
+    if(n.ownerRef){
+      const ref=n.ownerRef, exactId=/^[a-z0-9][a-z0-9._:/@-]{0,239}$/;
+      if(ref.schemaVersion!=='hopper.exact-resource-ref.v1'||!['productId','resourceType','resourceId','version'].every(k=>exactId.test(ref[k]||''))||!/^sha256:[0-9a-f]{64}$/.test(ref.digest))throw Error('Invalid exact owner reference');
+    }
   }else{text(n.article,'article reference');if(n.kind==='link')safeUrl(n.url);}
   if(n.kind==='section'||n.kind==='example')text(n.text,'text');
   if(!Array.isArray(n.sources)||!n.sources.length)throw Error('Evidence required for '+c.id);}
