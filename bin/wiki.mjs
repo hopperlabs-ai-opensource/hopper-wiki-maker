@@ -11,7 +11,7 @@ async function rpc(m){
  const result=value=>({jsonrpc:'2.0',id:m.id,result:value});
  if(m.jsonrpc!=='2.0')throw Error('Invalid JSON-RPC');
  if(m.id===undefined)return;
- if(m.method==='initialize'){const versions=['2025-11-25','2025-06-18','2025-03-26','2024-11-05'];return result({protocolVersion:versions.includes(m.params?.protocolVersion)?m.params.protocolVersion:versions[0],capabilities:{tools:{}},serverInfo:{name:'hopper-wiki-maker',version:'0.1.1'}});}
+ if(m.method==='initialize'){const versions=['2025-11-25','2025-06-18','2025-03-26','2024-11-05'];return result({protocolVersion:versions.includes(m.params?.protocolVersion)?m.params.protocolVersion:versions[0],capabilities:{tools:{}},serverInfo:{name:'hopper-wiki-maker',version:'0.1.2'}});}
  if(m.method==='ping')return result({});
  if(m.method==='tools/list')return result({tools:list()});
  if(m.method==='tools/call'){

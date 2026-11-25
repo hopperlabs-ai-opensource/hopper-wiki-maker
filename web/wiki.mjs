@@ -30,7 +30,7 @@ async function refresh(){
 }
 function showError(e){document.querySelector('#date-label').textContent='Unable to load this time view';document.querySelector('#projection').innerHTML='<p role="alert">'+esc(e.message)+'</p>';}
 function navigate(push=true){const u=new URL(location.href);u.search='';if(form.validAt.value)u.searchParams.set('validAt',form.validAt.value);if(form.knownAt.value)u.searchParams.set('knownAt',new Date(form.knownAt.value+'Z').toISOString());history[push?'pushState':'replaceState']({},'',u);refresh().catch(showError);}
-if(form){form.onsubmit=e=>{e.preventDefault();navigate();};document.querySelector('#reset').onclick=()=>{form.reset();form.validAt.value='';form.knownAt.value='';navigate();};
+if(form){form.onsubmit=e=>{e.preventDefault();navigate();};document.querySelector('#reset').onclick=()=>{form.validAt.value='';form.knownAt.value='';navigate();};
  box.ontoggle=()=>{if(box.open)refresh().catch(showError);};
  if(location.search){box.open=true;refresh().catch(showError);}addEventListener('popstate',()=>refresh().catch(showError));}
 if(navigator.modelContext?.registerTool){
