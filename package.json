@@ -1,6 +1,6 @@
 {
   "name": "@hopperlabs/wiki-maker",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "description": "Build a cited wiki from a bitemporal graph of articles, claims and events",
   "license": "MIT",
