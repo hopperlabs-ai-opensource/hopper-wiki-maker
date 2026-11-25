@@ -27,10 +27,12 @@ Wiki Maker separates **owned editorial prose** from **upstream source systems**.
 - **Structured JSON catalog (`adapter: "json"`)** — Imports arrays of sites, apps, products, people, or concepts with typed `relations` (`powers`, `uses`, `part-of`, `chronicles`, `covered-in`, `implements`, `built-with`, `related`).
 - **Chronoscope pack (`adapter: "chronoscope"`)** — Imports any Chronoscope pack (`view.json`, `entries.json`, optional `sources.json`), preserving BCE and CE dates, primary source receipts, Chronoscope deep links, and `hopper.exact-resource-ref.v1` SHA-256 digests.
 
+The encyclopedia reader supports sourced infobox rows and attributed images on an article revision. Each fact has a label, a value and a public source URL. Each image carries its dimensions, alternative text, caption, credit and license links. Historical views and Markdown use the same revision as the article.
+
 ## What `export` builds
 
 From one validated graph, `export` emits:
-- Reader pages: `/` (index + instant search), `/collections/<key>/` (collection hubs), `/graph/` (interactive Graph Explorer), `/timeline/` (shared history), and `/wiki/<slug>/` (article with inline SVG neighborhood graph, worked examples, milestone chart, references, and Time View).
+- Reader pages: `/` (index + instant search), `/collections/<key>/` (collection hubs), `/graph/` (interactive Graph Explorer), `/timeline/` (shared history), and `/wiki/<slug>/` (article with a contents list, numbered references, graph-linked text, worked examples, and Time View).
 - Sharded agent & browser data: `/api/index.json`, `/api/search.json`, `/api/graph-index.json`, `/api/articles/<slug>.json`, `/api/articles/<slug>.md`, `/api/history/<slug>.json` (compact per-article bitemporal history shard), `/api/collections/<key>.json`, `/api/timeline.json`, `/api/revisions/<hash>.json`, `/api/diffs/<hash>.json`, `/feed.json`, and `/llms.txt`.
 
 ## Time, typed graphs, and evidence

@@ -1,5 +1,5 @@
-import { project, find } from '../src/project.mjs';
-import { esc, href, articleBody, markdown, cardHtml } from '../src/format.mjs';
+import { project } from '../src/project.mjs';
+import { esc, href, articleBody, markdown } from '../src/format.mjs';
 
 let searchCache;
 const loadSearch = () => searchCache ??= fetch('/api/search.json')
@@ -31,81 +31,77 @@ const loadHistory = (articleSlug) => {
 
 // Main index & collection search
 const query = document.querySelector('#search');
-const searchHits = document.querySelector('#search-hits');
 const resultsEl = document.querySelector('#results');
 if (query) {
-  const localOnly = query.dataset.scope === 'local';
-  const collectionHubs = document.querySelector('.collection-hubs');
-  let searchSeq = 0;
-  const runSearch = async () => {
-    const seq = ++searchSeq;
+  query.addEventListener('input', () => {
     const term = query.value.trim().toLowerCase();
-    const groups = [...document.querySelectorAll('.index-group')];
-    if (!term) {
-      if (searchHits) { searchHits.hidden = true; searchHits.innerHTML = ''; }
-      if (collectionHubs) collectionHubs.hidden = false;
-      for (const g of groups) {
-        g.hidden = false;
-        for (const c of g.querySelectorAll('.card')) c.hidden = false;
-      }
-      if (resultsEl) resultsEl.textContent = '';
-      return;
-    }
-    if (localOnly || !searchHits) {
-      let count = 0;
-      for (const card of document.querySelectorAll('.card')) {
-        card.hidden = !(card.dataset.search || '').includes(term);
-        if (!card.hidden) count++;
-      }
-      for (const g of groups) g.hidden = ![...g.querySelectorAll('.card')].some(c => !c.hidden);
-      if (resultsEl) resultsEl.textContent = count + ' matching ' + (count === 1 ? 'article' : 'articles');
-      return;
-    }
-    // Instant DOM filter first, then expand with full /api/search.json results
-    let localCount = 0;
+    let count = 0;
     for (const card of document.querySelectorAll('.index-group .card')) {
-      const match = (card.dataset.search || '').includes(term);
-      card.hidden = !match;
-      if (match) localCount++;
+      card.hidden = !(card.dataset.search || '').includes(term);
+      if (!card.hidden) count++;
     }
-    for (const g of groups) g.hidden = ![...g.querySelectorAll('.card')].some(c => !c.hidden);
-    if (collectionHubs) collectionHubs.hidden = true;
-    if (resultsEl) resultsEl.textContent = localCount + ' matching ' + (localCount === 1 ? 'article' : 'articles');
-
-    try {
-      const all = await loadSearch();
-      if (seq !== searchSeq) return;
-      const matches = all.filter(i => (i.t + ' ' + i.c + ' ' + (i.k || '') + ' ' + i.s + ' ' + (i.d || '') + ' ' + (i.a || []).join(' ')).toLowerCase().includes(term));
-      for (const g of groups) g.hidden = true;
-      searchHits.innerHTML = matches.slice(0, 60).map(i => cardHtml({ slug: i.s, title: i.t, category: i.c, entityType: i.k, description: i.d || '', aliases: i.a || [] })).join('');
-      searchHits.hidden = false;
-      if (resultsEl) resultsEl.textContent = matches.length + ' matching ' + (matches.length === 1 ? 'article' : 'articles') + (matches.length > 60 ? ' (showing first 60)' : '');
-    } catch { /* keep local DOM filter results */ }
-  };
-  query.addEventListener('input', () => { runSearch(); });
+    resultsEl.textContent = term ? count + ' matching ' + (count === 1 ? 'article' : 'articles') : '';
+  });
 }
 
-// Sidebar quick-jump search across every page
 const navSearch = document.querySelector('#nav-search');
 const navResults = document.querySelector('#nav-results');
 if (navSearch && navResults) {
-  let navSeq = 0;
-  navSearch.addEventListener('focus', () => { loadSearch().catch(() => {}); });
-  navSearch.addEventListener('input', async () => {
-    const seq = ++navSeq;
+  let sequence = 0;
+  function dismiss() { sequence++; navResults.hidden = true; }
+  async function search(submit) {
+    const seq = ++sequence;
     const term = navSearch.value.trim().toLowerCase();
-    if (!term) { navResults.hidden = true; navResults.innerHTML = ''; return; }
+    if (!term) { navResults.hidden = true; return; }
     try {
       const all = await loadSearch();
-      if (seq !== navSeq) return;
-      const hits = all.filter(i => (i.t + ' ' + i.c + ' ' + i.s + ' ' + (i.a || []).join(' ')).toLowerCase().includes(term)).slice(0, 12);
+      if (seq !== sequence) return;
+      const rank = i => [i.t.toLowerCase(), i.s, ...(i.a || [])].includes(term) ? 0 : i.t.toLowerCase().startsWith(term) ? 1 : 2;
+      const matches = all.filter(i => [i.t, i.c, i.s, i.k, i.d, ...(i.a || [])].join(' ').toLowerCase().includes(term));
+      const hits = matches.sort((a,b) => rank(a) - rank(b)).slice(0, 24);
       navResults.innerHTML = hits.length
         ? hits.map(i => `<a href="${href(i.s)}"><strong>${esc(i.t)}</strong><small>${esc(i.c)}</small></a>`).join('')
-        : '<p class="nav-empty">No matching articles</p>';
+        : '<p class="nav-empty" role="status">No matching articles</p>';
       navResults.hidden = false;
-    } catch { navResults.hidden = true; }
+      if (submit) navResults.querySelector('a')?.focus();
+    } catch {
+      if (seq !== sequence) return;
+      navResults.innerHTML = '<p role="status">Search is unavailable. <a href="/">Browse the index</a></p>';
+      navResults.hidden = false;
+    }
+  }
+  navSearch.form.addEventListener('submit', e => { e.preventDefault(); search(true); });
+  navSearch.addEventListener('input', () => search(false));
+  const container = navSearch.closest('.find');
+  container.addEventListener('focusout', e => { if (!container.contains(e.relatedTarget)) dismiss(); });
+  container.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { dismiss(); navSearch.focus(); }
+    if (e.key === 'ArrowDown' && !navResults.hidden) { e.preventDefault(); (document.activeElement.nextElementSibling?.closest('.found a') || navResults.querySelector('a'))?.focus(); }
   });
 }
+
+function applyAppearance() {
+  for (const [name, value, cssClass] of [['text-size', 'large', 'large-text'], ['reading-width', 'wide', 'wide']]) {
+    let enabled = document.documentElement.classList.contains(cssClass);
+    try { enabled = localStorage.getItem('wiki-' + name) === value; } catch {}
+    document.documentElement.classList.toggle(cssClass, enabled);
+    const input = document.querySelector(`.appearance input[name="${name}"][value="${enabled ? value : 'standard'}"]`);
+    if (input) input.checked = true;
+  }
+}
+applyAppearance();
+document.addEventListener('change', e => {
+  const input = e.target.closest('.appearance input');
+  if (!input) return;
+  const large = input.name === 'text-size';
+  document.documentElement.classList.toggle(large ? 'large-text' : 'wide', input.value !== 'standard');
+  try { localStorage.setItem('wiki-' + input.name, input.value); } catch {}
+});
+document.addEventListener('click', e => {
+  if (e.target.closest('a[href="#timebox"]')) document.getElementById('timebox').open = true;
+  const appearance = document.querySelector('.appearance[open]');
+  if (appearance && !appearance.contains(e.target)) appearance.open = false;
+});
 
 // Per-article bitemporal Time View (uses compact /api/history/<slug>.json shard)
 const slug = document.querySelector('#main')?.dataset.slug;
@@ -118,9 +114,14 @@ function blobLink(id, data, type) {
   if (a) { a.href = u; a.download = slug + (id === 'json' ? '.json' : '.md'); }
 }
 
+let viewRequest = 0;
+let timeQuery = location.search;
 async function refresh() {
+  timeQuery = location.search;
+  const requestId = ++viewRequest;
   const params = new URLSearchParams(location.search), validAt = params.get('validAt'), knownAt = params.get('knownAt');
   const g = await loadHistory(slug);
+  if (requestId !== viewRequest) return;
   const p = project(g, slug, { ...(validAt ? { validAt } : {}), ...(knownAt ? { knownAt } : {}) });
   const dates = [...new Set((project(g, slug, { knownAt: knownAt || undefined })?.events || [])
     .map(e => e.date)
@@ -137,6 +138,7 @@ async function refresh() {
   slider.oninput = () => { form.validAt.value = dates[+slider.value]; navigate(false); };
   document.querySelector('#date-label').textContent = [validAt ? 'Valid on ' + validAt : 'Latest facts', knownAt ? 'known by ' + knownAt : ''].filter(Boolean).join(' · ');
   document.querySelector('#projection').innerHTML = p ? articleBody(p) : '<div class="sparse"><h1>No article at these dates</h1><p>Choose a later event date or knowledge cutoff to see the available record.</p></div>';
+  applyAppearance();
   for (const u of urls.splice(0)) URL.revokeObjectURL(u);
   for (const id of ['json', 'markdown']) { const el = document.getElementById(id); if (el) el.hidden = !p; }
   if (p) { blobLink('json', JSON.stringify(p, null, 2), 'application/json'); blobLink('markdown', markdown(p), 'text/markdown'); }
@@ -168,7 +170,7 @@ if (form && slug) {
   document.querySelector('#reset').onclick = () => { form.validAt.value = ''; form.knownAt.value = ''; navigate(); };
   box.ontoggle = () => { if (box.open) refresh().catch(showError); };
   if (location.search) { box.open = true; refresh().catch(showError); }
-  addEventListener('popstate', () => refresh().catch(showError));
+  addEventListener('popstate', () => { if (location.search !== timeQuery) refresh().catch(showError); });
 }
 
 // Interactive Graph Explorer (/graph/)

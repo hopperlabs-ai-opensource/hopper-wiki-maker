@@ -160,3 +160,52 @@ test('large multi-collection graph validates quickly and emits scoped navigation
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('illustrations, sourced facts and citation returns follow the selected edition', () => {
+  const g = initialize('Space');
+  g.revisions.push(candidate(g, {base: null, message: 'First edition', changes}, '2026-01-01T10:00:00.000Z'));
+  const url = changes[0].node.url;
+  const article = {
+    ...changes[1].node, summary: 'The Voyager mission.',
+    image: {src: '/media/wiki/voyager.webp', alt: 'Voyager spacecraft', caption: 'Mission photograph',
+      credit: 'NASA', creditUrl: url, license: 'Public domain', licenseUrl: url, width: 640, height: 480},
+    facts: [{label: 'Mission', value: 'Voyager', sourceUrl: url}],
+  };
+  const change = {...changes[1], from: '2026-01-02', node: article};
+  const proposal = {base: g.revisions[0].id, message: 'Add illustration', changes: [change]};
+  for (const src of ['//invalid.example/file.png', 'javascript:alert(1)', '/media/wiki/../private']) {
+    assert.throws(() => candidate(g, {...proposal, changes: [{...change, node: {...article, image: {...article.image, src}}}]}));
+  }
+  g.revisions.push(candidate(g, proposal, '2026-01-02T10:00:00.000Z'));
+  assert.equal(project(articleHistoryGraph(g, 'voyager'), 'voyager', {knownAt: '2026-01-01'}).article.image, undefined);
+  const dir = mkdtempSync(path.join(tmpdir(), 'wiki-reader-'));
+  try {
+    exportWiki(g, dir);
+    const html = readFileSync(path.join(dir, 'wiki/voyager/index.html'), 'utf8');
+    assert.match(html, /width="640" height="480"/);
+    assert.match(html, /href="#cite-0-1"/);
+    assert.match(html, /aria-label="Article contents"/);
+    assert.match(readFileSync(path.join(dir, 'api/articles/voyager.md'), 'utf8'), /Voyager spacecraft/);
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('coverage rejects broken article mappings and emits the links counted in HTML', () => {
+  const g = initialize('Space');
+  g.revisions.push(candidate(g, {base: null, message: 'First edition', changes}, '2026-01-01T10:00:00.000Z'));
+  const dir = mkdtempSync(path.join(tmpdir(), 'wiki-coverage-'));
+  const record = {title:'Missions', source:changes[0].node.url, denominator:2, articles:['voyager']};
+  try {
+    exportWiki(g, dir, {coverage:[record]});
+    const data = JSON.parse(readFileSync(path.join(dir,'api/coverage.json')));
+    assert.equal(data.surfaces[0].matched, 1);
+    assert.equal(data.surfaces[0].articles[0].href, '/wiki/voyager/');
+    assert.throws(() => exportWiki(g, dir, {coverage:[{...record,articles:['absent']}]}));
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('optional authoring fields survive JSON revision round trips', () => {
+  const g = initialize('Space');
+  const optional = {...changes[1], node:{...changes[1].node, image:undefined}};
+  g.revisions.push(candidate(g, {base:null, message:'Release', changes:[changes[0],optional]}));
+  validate(JSON.parse(JSON.stringify(g)));
+});

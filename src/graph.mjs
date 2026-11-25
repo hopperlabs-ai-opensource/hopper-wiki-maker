@@ -41,6 +41,18 @@ function validChange(c) {
     if (n.entityType != null && (typeof n.entityType !== 'string' || !relName.test(n.entityType))) {
       throw Error('Invalid entityType in ' + c.id);
     }
+    if (n.image != null) {
+      const im = n.image;
+      for (const field of ['src', 'alt', 'caption', 'credit', 'license']) text(im[field], 'image ' + field);
+      if (!/^\/media\/wiki\/[a-z0-9][a-z0-9_-]*\.(?:webp|jpg|jpeg|png|avif)$/.test(im.src)) safeUrl(im.src);
+      safeUrl(im.creditUrl);
+      safeUrl(im.licenseUrl);
+      if (![im.width, im.height].every(v => Number.isSafeInteger(v) && v > 0)) throw Error('Invalid image dimensions');
+    }
+    if (n.facts != null) {
+      if (!Array.isArray(n.facts)) throw Error('Expected sourced fact rows');
+      for (const f of n.facts) { text(f.label, 'fact label'); text(f.value, 'fact value'); safeUrl(f.sourceUrl); }
+    }
     if (n.homepage != null) safeUrl(n.homepage);
     for (const a of n.aliases || []) if (!slug.test(a)) throw Error('Invalid alias');
     for (const r of n.relations || []) {
@@ -55,7 +67,9 @@ function validChange(c) {
       if (n.chronoscope) safeUrl(n.chronoscope);
       if (n.ownerRef) {
         const ref = n.ownerRef, exactId = /^[a-z0-9][a-z0-9._:/@-]{0,239}$/;
-        if (ref.schemaVersion !== 'hopper.exact-resource-ref.v1' || !['productId', 'resourceType', 'resourceId', 'version'].every(k => exactId.test(ref[k] || '')) || !/^sha256:[0-9a-f]{64}$/.test(ref.digest)) {
+        const resourceId = ref.productId === 'hopper.domain-app.chronoscope' && ref.resourceType === 'chronoscope.pack-entry'
+          ? /^[\p{L}0-9][\p{L}\p{M}0-9._:/@-]{0,239}$/u : exactId;
+        if (ref.schemaVersion !== 'hopper.exact-resource-ref.v1' || !resourceId.test(ref.resourceId || '') || !['productId', 'resourceType', 'version'].every(k => exactId.test(ref[k] || '')) || !/^sha256:[0-9a-f]{64}$/.test(ref.digest)) {
           throw Error('Invalid exact owner reference');
         }
       }
@@ -215,7 +229,9 @@ export function candidate(graph, proposal, recordedAt = new Date().toISOString()
   if (!Object.hasOwn(proposal, 'base') || proposal.base !== head(graph)) {
     throw Error('Base revision changed. Read the current head and review the diff.');
   }
-  const body = { parent: proposal.base, recordedAt, message: proposal.message, changes: proposal.changes };
+  // Revisions are persisted as JSON. Hash the same representation that readers receive.
+  const changes = JSON.parse(JSON.stringify(proposal.changes));
+  const body = { parent: proposal.base, recordedAt, message: proposal.message, changes };
   const revision = { id: digest(body), ...body };
   validate({ ...graph, revisions: [...graph.revisions, revision] });
   return revision;

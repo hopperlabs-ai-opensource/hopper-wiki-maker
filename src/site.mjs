@@ -11,7 +11,7 @@ const save = (dir, file, body) => {
   fs.writeFileSync(p, body);
 };
 
-export function exportWiki(graph, dir, { origin = '', emitFullGraph = true } = {}) {
+export function exportWiki(graph, dir, { origin = '', emitFullGraph = true, brand, featured = [], coverage = [] } = {}) {
   validate(graph);
   const releaseView = { validAt: (graph.revisions.at(-1)?.recordedAt || '1970-01-01').slice(0, 10) };
   const file = (name, body) => save(dir, name, body);
@@ -22,18 +22,32 @@ export function exportWiki(graph, dir, { origin = '', emitFullGraph = true } = {
   const pages = [];
 
   function page(route, title, description, body, slug = '', context = {}) {
-    const inner = shell(graph.title, items, body, slug, context);
-    pages.push({ route, title, description, html: inner });
+    const inner = shell(graph.title, items, body, slug, { ...context, brand, hasCoverage: coverage.length > 0 });
+    pages.push({ route, title, description, html: inner, ...context.metadata });
     file(route.slice(1) + 'index.html', '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>' + esc(title) + ' · ' + esc(graph.title) + '</title><meta name="description" content="' + esc(description) + '"><link rel="stylesheet" href="/assets/wiki.css"><script type="module" src="/assets/wiki.mjs"></script></head><body>' + inner + '</body></html>');
   }
 
-  page('/', graph.title, 'Browse cited articles, products, collections, examples and dated events.', indexBody(items, gIndex));
+  page('/', graph.title, 'Browse cited articles, products, collections, examples and dated events.', indexBody(items, gIndex, featured));
   page('/graph/', 'Graph Explorer', 'Interactive graph of all articles, collections, and typed connections.', graphBody(gIndex));
+
+  if (coverage.length) {
+    const slugs = new Set(items.map(i => i.slug));
+    const rows = coverage.map(c => {
+      if (!/^https:\/\//u.test(c.source) || !Number.isSafeInteger(c.denominator) || c.denominator < 0 || !Array.isArray(c.articles)) throw Error('Invalid coverage record');
+      if (c.articles.some(slug => !slugs.has(slug)) || c.articles.length > c.denominator) throw Error('Unresolved coverage in ' + c.title);
+      const links = c.articles.map(slug => ({ slug, href: href(slug) }));
+      return { title: c.title, source: c.source, denominator: c.denominator, matched: links.length, note: c.note || '', articles: links };
+    });
+    const rowsHtml = rows.map(r => `<tr><th scope="row"><a href="${esc(r.source)}">${esc(r.title)}</a></th><td>${r.matched}</td><td>${r.denominator}</td><td>${esc(r.note)}</td></tr>`).join('');
+    const description = 'Public catalog records matched to articles in this edition of the wiki.';
+    page('/coverage/', 'Source coverage', description, `<div class="index"><p class="kicker"><a href="/">Subject index</a></p><h1>Source coverage</h1><p>${description} Checked <time>${releaseView.validAt}</time>. An article can appear in several catalogs.</p><table class="coverage"><thead><tr><th scope="col">Public catalog</th><th scope="col">Matched</th><th scope="col">Listed</th><th scope="col">Scope</th></tr></thead><tbody>${rowsHtml}</tbody></table><p><a href="/api/coverage.json">Download the catalog-to-article matches</a></p></div>`);
+    json('api/coverage.json', { revision: head(graph), date: releaseView.validAt, surfaces: rows });
+  }
 
   for (const i of items) {
     const p = project(graph, i.slug, releaseView);
     const neighbors = [...p.related, ...p.backlinks];
-    page(href(i.slug), i.title, i.description || i.title, articleBody(p), i.slug, { category: i.category, neighbors });
+    page(href(i.slug), i.title, i.description || i.title, articleBody(p), i.slug, { category: i.category, neighbors, metadata: { aliases: p.article.aliases || [], published: p.history[0].recordedAt, modified: p.history.at(-1).recordedAt } });
     json('api/articles/' + i.slug + '.json', p);
     file('api/articles/' + i.slug + '.md', markdown(p));
     json('api/history/' + i.slug + '.json', articleHistoryGraph(graph, i.slug));
