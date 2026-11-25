@@ -1,0 +1,29 @@
+{
+  "name": "@hopperlabs/wiki-maker",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Build a cited wiki from a bitemporal graph of articles, claims and events",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "wiki-maker": "./bin/wiki.mjs"
+  },
+  "exports": {
+    ".": "./src/graph.mjs",
+    "./publish": "./src/site.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "files": [
+    "bin",
+    "src",
+    "web",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "examples"
+  ]
+}

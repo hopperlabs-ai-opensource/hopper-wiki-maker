@@ -1,0 +1,8 @@
+{
+  "message": "Record Voyager 1’s Saturn encounter",
+  "changes": [
+    {"id":"source:voyager","from":"1980-11-12","node":{"kind":"source","title":"NASA · Voyager 1","url":"https://science.nasa.gov/mission/voyager/voyager-1/"}},
+    {"id":"article:voyager","from":"1980-11-12","node":{"kind":"article","title":"Voyager 1","category":"Spaceflight","summary":"NASA’s Voyager 1 explored the outer planets.","sources":["source:voyager"]}},
+    {"id":"event:saturn","from":"1980-11-12","node":{"kind":"event","articles":["article:voyager"],"date":"1980-11-12","title":"Voyager 1 flies past Saturn","sources":["source:voyager"]}}
+  ]
+}
