@@ -1,6 +1,6 @@
 {
   "name": "@hopperlabs/wiki-maker",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Build a sourced, bitemporal graph wiki with typed connections, collection hubs, Graph Explorer, CLI, MCP, and WebMCP exports.",
   "license": "MIT",
   "type": "module",

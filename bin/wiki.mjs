@@ -25,7 +25,7 @@ async function rpc(m) {
     return result({
       protocolVersion: versions.includes(m.params?.protocolVersion) ? m.params.protocolVersion : versions[0],
       capabilities: { tools: {} },
-      serverInfo: { name: 'hopper-wiki-maker', version: '0.3.0' },
+      serverInfo: { name: 'hopper-wiki-maker', version: '0.3.1' },
     });
   }
   if (m.method === 'ping') return result({});

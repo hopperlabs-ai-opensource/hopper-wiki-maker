@@ -141,9 +141,11 @@ async function refresh() {
   for (const id of ['json', 'markdown']) { const el = document.getElementById(id); if (el) el.hidden = !p; }
   if (p) { blobLink('json', JSON.stringify(p, null, 2), 'application/json'); blobLink('markdown', markdown(p), 'text/markdown'); }
   for (const link of document.querySelectorAll('#projection a[href^="/wiki/"],.library a[href^="/wiki/"]')) {
-    const url = new URL(link.href);
+    const raw = link.getAttribute('href');
+    if (!raw) continue;
+    const url = new URL(raw, location.origin);
     url.search = params.toString();
-    link.href = url.href;
+    link.setAttribute('href', url.pathname + url.search + url.hash);
   }
 }
 
