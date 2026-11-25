@@ -12,7 +12,9 @@
   },
   "exports": {
     ".": "./src/graph.mjs",
-    "./publish": "./src/site.mjs"
+    "./publish": "./src/site.mjs",
+    "./browser": "./web/wiki.mjs",
+    "./styles.css": "./web/wiki.css"
   },
   "scripts": {
     "test": "node --test"

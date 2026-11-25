@@ -37,6 +37,6 @@ export function exportWiki(graph,dir,{origin=''}={}){
     json('api/collections/'+key+'.json',{category,revision:head(graph),articles:listed,events:events.filter(n=>n.articles.some(id=>ids.has(id)))});
   }
   file('llms.txt','# '+graph.title+'\n\n- [Article index]('+origin+'/api/index.json)\n- [Bitemporal graph]('+origin+'/api/graph.json)\n- [Event timeline]('+origin+'/api/timeline.json)\n- [Change feed]('+origin+'/feed.json)\n\n'+items.map(i=>'- ['+i.title+']('+origin+'/api/articles/'+i.slug+'.md)').join('\n')+'\n');
-  for(const [source,name] of [['web/wiki.css','wiki.css'],['web/wiki.mjs','wiki.mjs'],['src/project.mjs','project.mjs'],['src/format.mjs','format.mjs']]) file('assets/'+name,fs.readFileSync(path.join(root,source)));
+  for(const [source,name] of [['web/wiki.css','wiki.css'],['web/wiki.mjs','wiki.mjs'],['src/project.mjs','project.mjs'],['src/format.mjs','format.mjs']]) {const bytes=fs.readFileSync(path.join(root,source),'utf8');file('assets/'+name,name==='wiki.mjs'?bytes.replaceAll("from '../src/","from './"):bytes);}
   return pages;
 }

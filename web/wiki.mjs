@@ -1,5 +1,5 @@
-import {project,find,nodesAt} from './project.mjs';
-import {esc,articleBody,markdown} from './format.mjs';
+import {project,find,nodesAt} from '../src/project.mjs';
+import {esc,articleBody,markdown} from '../src/format.mjs';
 const query=document.querySelector('#search');
 query?.addEventListener('input',()=>{
  const term=query.value.trim().toLowerCase();let count=0;
