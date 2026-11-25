@@ -1,40 +1,57 @@
 # Hopper Wiki Maker
 
-Wiki Maker publishes an independent wiki from an append-only graph. Articles, editorial sections, examples, evidence and shared events have stable IDs. Every revision has a SHA-256 digest and a parent. A source correction can take effect in the past without changing what a reader could have known before the correction was recorded.
+Wiki Maker builds a fast, static, **sourced bitemporal graph wiki** for both human readers and AI agents—with zero runtime dependencies. Every article, section, example, milestone, and typed relation lives in an append-only SHA-256 revision chain.
 
-## Make a second wiki
+## Start your own wiki in 2 minutes
 
-Clone this repository, enter the checkout and run the following with Node 22 or newer. There are no runtime dependencies.
-
-```sh
-node bin/wiki.mjs init space.json '{"title":"Spaceflight Wiki"}'
-node bin/wiki.mjs propose space.json @examples/spaceflight/encounter.json > proposal.json
-```
-
-To give the same proposal to preview, validation and publication, wrap it once.
+Clone this repository (or install `@hopperlabs/wiki-maker`) with Node.js 22 or newer:
 
 ```sh
-node -e 'console.log(JSON.stringify({proposal:require("./proposal.json")}))' > review.json
-node bin/wiki.mjs preview space.json @review.json
-node bin/wiki.mjs validate space.json @review.json
-node bin/wiki.mjs publish space.json @review.json
-node bin/wiki.mjs export space.json '{"directory":"public","origin":"https://example.org"}'
+node bin/wiki.mjs scaffold my-wiki '{"title":"My Knowledge Wiki","origin":"https://example.org"}'
+cd my-wiki
+node ../bin/wiki.mjs init wiki.json '{"title":"My Knowledge Wiki"}'
+node ../bin/wiki.mjs import wiki.json '{"adapter":"markdown","directory":"content","defaultSourceTitle":"My Knowledge Wiki","defaultSourceUrl":"https://example.org"}' > proposal.json
+node -e 'console.log(JSON.stringify({proposal:JSON.parse(require("fs").readFileSync("proposal.json","utf8"))}))' > review.json
+node ../bin/wiki.mjs preview wiki.json @review.json
+node ../bin/wiki.mjs publish wiki.json @review.json
+node ../bin/wiki.mjs export wiki.json '{"directory":"public","origin":"https://example.org"}'
 ```
 
-Publish the contents of `public/` on your static host. Open `/wiki/voyager/`, `/timeline/`, `/api/articles/voyager.md` and `/api/articles/voyager.json`. Export to an empty folder for each new release. `feed.json` lists revisions and affected article IDs. `api/graph.json` and `api/revisions/<hash>.json` carry the original records. `api/diffs/<hash>.json` shows the before/after for each change.
+Deploy `public/` to GitHub Pages, Cloudflare Pages, Vercel, or any static host (the `scaffold` command includes a GitHub Pages workflow).
 
-## Time and evidence
+## Built-in importers (federated ownership)
 
-`from` is an inclusive valid date. `until` is an optional exclusive end. A release records its actual UTC time. To reproduce a view, supply both `validAt` and `knownAt`. With a date-only knowledge cutoff the reader uses the end of that UTC day. Event labels retain their source precision. An editor can keep month/year-only events out of an as-of view until the end of that month/year. An article can have several revisions for the same valid date. Proposals must identify the exact parent. Concurrent or stale updates are rejected. To retract a node for an interval, publish a change with `node: null`. Rebuilds check citations at every interval boundary.
+Wiki Maker separates **owned editorial prose** from **upstream source systems**. Every importer produces a reviewable `proposal` (never mutating the graph directly):
 
-## CLI, HTTP and agent access
+- **Markdown folder (`adapter: "markdown"`)** — Imports `.md` files with YAML frontmatter (`title`, `slug`, `category`, `entityType`, `homepage`, `source_url`, `related`) and automatically turns `[[wikilinks]]` into graph edges.
+- **Structured JSON catalog (`adapter: "json"`)** — Imports arrays of sites, apps, products, people, or concepts with typed `relations` (`powers`, `uses`, `part-of`, `chronicles`, `covered-in`, `implements`, `built-with`, `related`).
+- **Chronoscope pack (`adapter: "chronoscope"`)** — Imports any Chronoscope pack (`view.json`, `entries.json`, optional `sources.json`), preserving BCE and CE dates, primary source receipts, Chronoscope deep links, and `hopper.exact-resource-ref.v1` SHA-256 digests.
 
-The local CLI and stdio MCP use the same operations. Run `node bin/wiki.mjs mcp space.json` as a local MCP command. Configure an agent with `node bin/wiki.mjs mcp https://wiki.hopperlabs.ai/api/graph.json` to read the published graph. `wiki_find`, `wiki_read` and `wiki_changes` return the latest or requested times. The wiki page registers read tools in browsers supporting WebMCP. Other clients can follow the JSON and Markdown links directly.
+## What `export` builds
 
-For a local HTTP read API, run `node bin/wiki.mjs serve space.json 8787` and request `/api/read?slug=voyager&validAt=1980-11-12`. Use the `maintain-wiki` skill to propose, preview and validate sourced edits locally. Publication is an explicit operation. The public site requires no model or database at request time. An LLM editor submits the same sourced proposals as a person.
+From one validated graph, `export` emits:
+- Reader pages: `/` (index + instant search), `/collections/<key>/` (collection hubs), `/graph/` (interactive Graph Explorer), `/timeline/` (shared history), and `/wiki/<slug>/` (article with inline SVG neighborhood graph, worked examples, milestone chart, references, and Time View).
+- Sharded agent & browser data: `/api/index.json`, `/api/search.json`, `/api/graph-index.json`, `/api/articles/<slug>.json`, `/api/articles/<slug>.md`, `/api/history/<slug>.json` (compact per-article bitemporal history shard), `/api/collections/<key>.json`, `/api/timeline.json`, `/api/revisions/<hash>.json`, `/api/diffs/<hash>.json`, `/feed.json`, and `/llms.txt`.
 
-## Graph ownership
+## Time, typed graphs, and evidence
 
-The Wiki graph owns editorial records. External records can carry an owner, record ID, revision, content digest and original public URL. These references preserve source ownership across wikis and timeline collections. Browser pages and agent exports use the same graph projection.
+- `from` is an inclusive valid date (`YYYY-MM-DD`); `until` is an optional exclusive end. Historical `event.date` values support both CE and BCE dates (for example `-3300` renders as `3300 BCE`).
+- Every revision records its UTC `recordedAt` timestamp, exact `parent` digest, and SHA-256 revision ID. Stale proposals are rejected; citations and references are verified incrementally across interval boundaries.
+- Articles can declare an `entityType`, public `homepage`, and typed `relations: [{ to, rel }]`, automatically computing incoming `backlinks` and visual neighborhood graphs.
 
-Run `node --test` to check bitemporal corrections, stale-head rejection, evidence requirements and the second-wiki export.
+## CLI, HTTP, MCP, and WebMCP
+
+The CLI, local HTTP read API, stdio MCP server, and WebMCP browser tools share the same operation definitions:
+
+```sh
+# Local or remote stdio MCP server
+node bin/wiki.mjs mcp wiki.json
+node bin/wiki.mjs mcp https://wiki.hopperlabs.ai/api/graph.json
+
+# Read-only local HTTP API
+node bin/wiki.mjs serve wiki.json 8787
+```
+
+Use the bundled `skills/maintain-wiki` skill to teach coding agents to propose, preview, validate, and publish cited graph edits.
+
+Run `node --test` to verify bitemporal corrections, BCE dates, typed relations, importers, scaffolding, sharded exports, and large-graph validation speed.
